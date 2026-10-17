@@ -16,7 +16,8 @@
     "./testing/host": "./testing/comfyui-host.mjs",
     "./testing/coverage": "./testing/coverage.mjs",
     "./ui/core": "./ui/core.js",
-    "./ui/controls.css": "./ui/controls.css"
+    "./ui/controls.css": "./ui/controls.css",
+    "./ui/suggestions": "./ui/suggestions.js"
   },
   "files": [
     "testing",
