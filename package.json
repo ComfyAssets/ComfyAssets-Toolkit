@@ -1,6 +1,6 @@
 {
   "name": "@comfyassets/toolkit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -17,7 +17,9 @@
     "./testing/coverage": "./testing/coverage.mjs",
     "./ui/core": "./ui/core.js",
     "./ui/controls.css": "./ui/controls.css",
-    "./ui/suggestions": "./ui/suggestions.js"
+    "./ui/suggestions": "./ui/suggestions.js",
+    "./ui/prompt-bridge": "./ui/prompt-bridge.js",
+    "./testing/prompt-bridge-contracts": "./testing/prompt-bridge-contracts.mjs"
   },
   "files": [
     "testing",

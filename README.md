@@ -75,3 +75,69 @@ Pass a scope, host theme settings and optional `{ label }`; call
 `hide()`. Items require `name`; optional `type` and `fullPath` add resource badges
 and embedding directories. The consumer owns keyboard navigation, input ARIA
 state, matching and insertion. Disposing the scope removes the popup and listeners.
+
+## Same-origin prompt bridge
+
+`@comfyassets/toolkit/ui/prompt-bridge` exports `createBridgeHost`,
+`createBridgeClient` and `validateRoles`. This transport has no ComfyUI imports:
+consumer adapters own target discovery, widget policy, conflict detection and edits.
+
+```js
+const host = createBridgeHost({
+    namespace: '/my-comfy-proxy/', origin: location.origin, label: 'My workflow',
+    adapter: {
+        listTargets: () => [{ id: 'node-12', label: 'Prompt node' }],
+        preview: (targetId, roles) => ({
+            preview: { targetId, changes: roles },
+            snapshot: captureValidatedEdit(targetId, roles),
+        }),
+        apply: snapshot => applyIfUnchanged(snapshot),
+    },
+});
+const client = createBridgeClient({ namespace: '/my-comfy-proxy/', origin: location.origin });
+const hosts = await client.discover({ waitMs: 150, signal });
+const preview = await client.preview(hosts[0].hostId, 'node-12', { positive: 'mountains' }, { signal });
+// Render preview and require the user's explicit Apply action before this call.
+const acknowledgement = await client.apply(hosts[0].hostId, preview.ticket, { signal });
+client.dispose();
+host.dispose();
+```
+
+All adapter methods are synchronous. `preview` returns `{ preview, snapshot }`;
+the client receives `{ ...preview, ticket }`, never the private snapshot.
+`apply` must revalidate the captured destination/workflow and return a serializable
+acknowledgement. A positive and/or negative role must be an own string property;
+empty strings intentionally clear a role, while nulls, unknown keys and combined
+UTF-8 payloads over 1 MiB are rejected.
+
+Use the same normalized HTTP(S) `origin` and installation-specific `namespace`
+on both ends. The namespace must distinguish independently proxied ComfyUI
+installations. BroadcastChannel is same-origin communication, not authentication
+against other scripts on that origin. Unsupported browsers throw explicitly;
+consumers should explain how to open a supported host instead of claiming success.
+Optional `channelFactory(name)` enables isolated tests; its channel implements
+`postMessage`, `addEventListener`, `removeEventListener` and `close` with browser
+MessageEvent origins.
+
+Optional `hostId`/`clientId` are useful for tests; production defaults are UUIDs.
+Client `timeoutMs` defaults to 3000 (alias `requestTimeoutMs`); individual preview
+and apply calls may override it. Discovery waits `waitMs` and returns all replying
+hosts. Host `previewTtlMs` defaults to 30000, `maxTickets` to 100 and `maxReplay`
+to 200. Tickets expire, bind to one client and allow one application. Duplicate
+request IDs replay the cached acknowledgement without applying twice; conflicting
+reuse is ignored. Disposal and transport errors close channels, cancel waits and
+release listeners. Abort signals cancel client waits, and expired or stale edits
+require a fresh preview. Protocol major 1 validates origin, namespace, destination
+and request identity; independently installed consumers can communicate without
+sharing module instances.
+
+Consumers can run the identical protocol contracts against their pinned artifact:
+
+```js
+import * as bridge from './vendored/ui/prompt-bridge.js';
+import { registerPromptBridgeContracts } from '@comfyassets/toolkit/testing/prompt-bridge-contracts';
+registerPromptBridgeContracts(bridge, () => import('./vendored/ui/prompt-bridge.js?independent-copy'));
+```
+
+This Node.js test helper registers the full transport suite, including independent
+module instances; supply the actual installed module rather than a rewritten copy.
