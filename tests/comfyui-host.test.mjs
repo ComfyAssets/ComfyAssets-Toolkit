@@ -120,3 +120,97 @@ test('adapter failure cleans up its state and never starts a child process', asy
     } }), /adapter setup failed/);
     await assert.rejects(access(state), { code: 'ENOENT' });
 });
+
+test('multiple selected packs copy only tracked files, isolate preparation and whitelist both', async t => {
+    const options = await fixture(t, idle);
+    const sibling = await fixture(t, idle);
+    await writeFile(join(sibling.repository, 'tracked.txt'), 'Kiko tracked content');
+    execFileSync('git', ['-C', sibling.repository, 'add', 'tracked.txt']);
+    const prepared = [];
+    const host = await launchComfyHost({ ...options, additionalPlugins: [{
+        pluginName: 'kikotools', repository: sibling.repository,
+        preparePlugin: async ({ installed, stateDirectory }) => {
+            prepared.push({ installed, stateDirectory });
+            await writeFile(join(installed, 'config.json'), 'isolated Kiko configuration');
+        },
+    }] });
+    t.after(() => host.stop());
+    await once(host.child.stdout, 'data');
+    assert.deepEqual(host.child.spawnargs.slice(host.child.spawnargs.indexOf('--whitelist-custom-nodes') + 1), ['promptmanager', 'kikotools']);
+    const installed = join(host.stateDirectory, 'custom_nodes/kikotools');
+    assert.deepEqual(prepared, [{ installed, stateDirectory: host.stateDirectory }]);
+    assert.notEqual(await realpath(installed), await realpath(sibling.repository));
+    assert.equal(await readFile(join(installed, 'tracked.txt'), 'utf8'), 'Kiko tracked content');
+    assert.equal(await readFile(join(installed, 'config.json'), 'utf8'), 'isolated Kiko configuration');
+    await assert.rejects(access(join(installed, 'prompts.db')), { code: 'ENOENT' });
+    assert.equal(await readFile(join(sibling.repository, 'config.json'), 'utf8'), 'private-user-config');
+    await host.stop();
+    await assert.rejects(access(host.stateDirectory), { code: 'ENOENT' });
+    await access(join(sibling.repository, '__init__.py'));
+});
+
+test('additional packs validate names, uniqueness and repositories before preparing any pack', async t => {
+    const options = await fixture(t, idle);
+    const sibling = await fixture(t, idle);
+    let preparations = 0;
+    const primary = { ...options, preparePlugin: async () => { preparations++; } };
+    for (const pluginName of ['../escape', 'unsafe/name', 'has space', '', 'PromptManager']) {
+        await assert.rejects(launchComfyHost({ ...primary, additionalPlugins: [{ pluginName, repository: sibling.repository }] }), /safe custom-node|unique/i);
+    }
+    await assert.rejects(launchComfyHost({ ...primary, additionalPlugins: [
+        { pluginName: 'kikotools', repository: sibling.repository },
+        { pluginName: 'KikoTools', repository: sibling.repository },
+    ] }), /unique/i);
+    await assert.rejects(launchComfyHost({ ...primary, additionalPlugins: [{ pluginName: 'kikotools', repository: join(sibling.repository, 'missing') }] }), /ENOENT/);
+    await assert.rejects(launchComfyHost({ ...primary, additionalPlugins: [{ pluginName: 'kikotools', repository: sibling.checkout }] }), /ENOENT/);
+    await assert.rejects(launchComfyHost({ ...primary, additionalPlugins: {} }), /additionalPlugins.*array/i);
+    assert.equal(preparations, 0);
+});
+
+test('adapter environments merge independent keys and identical shared values', async t => {
+    const options = await fixture(t, `console.log(JSON.stringify({ primary: process.env.TEST_PRIMARY, sibling: process.env.TEST_SIBLING, shared: process.env.TEST_SHARED }));`);
+    const sibling = await fixture(t, idle);
+    const host = await launchComfyHost({ ...options,
+        preparePlugin: async () => ({ TEST_PRIMARY: 'primary', TEST_SHARED: 'shared' }),
+        additionalPlugins: [{ pluginName: 'kikotools', repository: sibling.repository,
+            preparePlugin: async () => ({ TEST_SIBLING: 'sibling', TEST_SHARED: 'shared' }) }],
+    });
+    assert.equal((await host.finished).code, 0);
+    assert.match(await readFile(options.logPath, 'utf8'), /"primary":"primary","sibling":"sibling","shared":"shared"/);
+    await assert.rejects(access(host.stateDirectory), { code: 'ENOENT' });
+});
+
+test('conflicting adapter environment values reject before spawning and clean all prepared state', async t => {
+    const options = await fixture(t, `require('node:fs').writeFileSync(process.argv[1] + '.started', 'yes');`);
+    const sibling = await fixture(t, idle);
+    const prepared = [];
+    await assert.rejects(launchComfyHost({ ...options,
+        preparePlugin: async ({ stateDirectory }) => { prepared.push(stateDirectory); return { TEST_SHARED: 'primary' }; },
+        additionalPlugins: [{ pluginName: 'kikotools', repository: sibling.repository,
+            preparePlugin: async ({ stateDirectory }) => { prepared.push(stateDirectory); return { TEST_SHARED: 'sibling' }; } }],
+    }), /conflicting.*TEST_SHARED/i);
+    assert.equal(prepared.length, 2);
+    assert.equal(prepared[0], prepared[1]);
+    await assert.rejects(access(prepared[0]), { code: 'ENOENT' });
+    await assert.rejects(access(join(options.checkout, 'main.py.started')), { code: 'ENOENT' });
+});
+
+test('additional adapter failure releases every snapshot without changing either source pack', async t => {
+    const options = await fixture(t, idle);
+    const sibling = await fixture(t, idle);
+    let state;
+    await assert.rejects(launchComfyHost({ ...options, additionalPlugins: [{
+        pluginName: 'kikotools', repository: sibling.repository,
+        preparePlugin: async ({ installed, stateDirectory }) => {
+            state = stateDirectory;
+            await access(join(stateDirectory, 'custom_nodes/promptmanager/config.json'));
+            await writeFile(join(installed, 'config.json'), 'temporary adapter state');
+            throw new Error('additional adapter failed');
+        },
+    }] }), /additional adapter failed/);
+    await assert.rejects(access(state), { code: 'ENOENT' });
+    for (const repository of [options.repository, sibling.repository]) {
+        assert.equal(await readFile(join(repository, 'config.json'), 'utf8'), 'private-user-config');
+        assert.equal(await readFile(join(repository, 'prompts.db'), 'utf8'), 'private-user-database');
+    }
+});
