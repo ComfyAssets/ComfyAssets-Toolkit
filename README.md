@@ -66,3 +66,12 @@ The control primitives were extracted from ComfyAssets' original KikoTools
 implementation; see [source provenance](SOURCE.md). Their organization was
 inspired by [Pixaroma](https://github.com/pixaroma/ComfyUI-Pixaroma). His code,
 styles and assets are not vendored. MIT licensed.
+
+### Suggestion popups
+
+Import `createSuggestionView` from `@comfyassets/toolkit/ui/suggestions`.
+Pass a scope, host theme settings and optional `{ label }`; call
+`render(items, onSelect, onInsert)`, `select(index)`, `position(fieldRect)` and
+`hide()`. Items require `name`; optional `type` and `fullPath` add resource badges
+and embedding directories. The consumer owns keyboard navigation, input ARIA
+state, matching and insertion. Disposing the scope removes the popup and listeners.

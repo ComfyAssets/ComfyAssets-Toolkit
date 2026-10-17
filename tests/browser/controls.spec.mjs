@@ -84,3 +84,56 @@ test('a second mount reuses styles and leaves unrelated controls untouched', asy
     expect(result.styles).toBe(1);
     expect(result.inside).not.toBe(result.outside);
 });
+
+
+test('suggestions render safe optional badges, retain input focus and dispose old options', async ({ page }) => {
+    await page.evaluate(async () => {
+        const { createSuggestionView } = await import('/ui/suggestions.js');
+        fixture.suggestions = createSuggestionView(fixture.scope, fixture.settings, { label: 'Existing tags' });
+        fixture.items = [{ name: '<b>portrait</b>' }, { name: 'model', type: 'embedding', fullPath: 'folder/model' }, { name: 'style', type: 'lora' }, { name: 'tag', type: 'custom' }];
+        fixture.suggestions.render(fixture.items, index => fixture.events.push(index), item => fixture.events.push(item.name));
+        fixture.suggestions.position({ left: 10, top: 10, bottom: 30 });
+    });
+    const popup = page.getByRole('listbox', { name: 'Existing tags' });
+    await expect(popup).toBeVisible();
+    await expect(popup.getByRole('option')).toHaveCount(4);
+    await expect(popup.locator('b')).toHaveCount(0);
+    await expect(popup.locator('.ca-completion-type')).toHaveText(['[EMB]', '[LORA]', '[TAG]']);
+    await expect(popup.locator('.ca-completion-directory')).toHaveText('folder/');
+    const input = page.getByLabel('Order');
+    await input.focus();
+    await popup.getByRole('option').first().click();
+    await expect(input).toBeFocused();
+    const id = await page.evaluate(() => fixture.suggestions.select(1));
+    await expect(popup.getByRole('option').nth(1)).toHaveAttribute('id', id);
+    await expect(popup.getByRole('option').nth(1)).toHaveAttribute('aria-selected', 'true');
+    expect(await page.evaluate(() => fixture.suggestions.select(-1))).toBeUndefined();
+    await page.evaluate(() => {
+        fixture.oldOption = fixture.suggestions.element.firstElementChild;
+        fixture.suggestions.hide();
+        fixture.oldOption.click();
+        fixture.suggestions.render([{ name: 'replacement' }], () => {}, () => {});
+    });
+    expect(await page.evaluate(() => fixture.events.filter(value => value === '<b>portrait</b>'))).toHaveLength(1);
+    await expect(popup.getByRole('option')).toHaveText('replacement');
+    await page.evaluate(() => fixture.scope.dispose());
+    await expect(popup).toHaveCount(0);
+});
+
+test('suggestions default label and viewport limits work on touch and narrow screens', async ({ page }) => {
+    await page.evaluate(async () => {
+        const { createSuggestionView } = await import('/ui/suggestions.js');
+        fixture.suggestions = createSuggestionView(fixture.scope, null);
+        fixture.suggestions.render([{ name: 'plain', type: 'embedding' }], () => {}, () => {});
+        fixture.suggestions.position({ left: innerWidth - 1, top: innerHeight - 50, bottom: innerHeight - 20 });
+    });
+    const popup = page.getByRole('listbox', { name: 'Suggestions', exact: true });
+    await expect(popup).toBeVisible();
+    const box = await popup.boundingBox();
+    const viewport = page.viewportSize();
+    expect(box.x).toBeGreaterThanOrEqual(8);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width - 8);
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height - 8);
+    await page.evaluate(() => fixture.suggestions.hide());
+    await expect(popup).toBeHidden();
+});

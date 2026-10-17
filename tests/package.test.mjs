@@ -16,18 +16,19 @@ test('the package is reproducible and installs independently without runtime dep
     const contents = readFileSync(join(directory, first.filename));
     const second = pack();
     assert.deepEqual(readFileSync(join(directory, second.filename)), contents);
-    for (const path of ['ui/core.js', 'ui/controls.css', 'testing/comfyui-host.mjs', 'testing/coverage.mjs', 'LICENSE']) assert.ok(first.files.some(file => file.path === path));
+    for (const path of ['ui/core.js', 'ui/suggestions.js', 'ui/controls.css', 'testing/comfyui-host.mjs', 'testing/coverage.mjs', 'LICENSE']) assert.ok(first.files.some(file => file.path === path));
     assert.ok(first.files.every(file => !/^(tests|tools|coverage|node_modules)\//.test(file.path)));
     writeFileSync(join(directory, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
     npm(['install', '--ignore-scripts', '--omit=dev', '--no-audit', '--no-fund', '--prefix', directory, join(directory, first.filename)]);
     const output = execFileSync(process.execPath, ['--input-type=module', '-e', `
         import { launchComfyHost } from '@comfyassets/toolkit/testing/host';
         import { discoverSources } from '@comfyassets/toolkit/testing/coverage';
+        import { createSuggestionView } from '@comfyassets/toolkit/ui/suggestions';
         import { createScope, themeFromColor } from '@comfyassets/toolkit/ui/core';
         const scope = createScope(); scope.dispose();
-        console.log(JSON.stringify([typeof launchComfyHost, typeof discoverSources, scope.signal.aborted, themeFromColor('#fff')]));
+        console.log(JSON.stringify([typeof launchComfyHost, typeof discoverSources, scope.signal.aborted, themeFromColor('#fff'), typeof createSuggestionView]));
     `], { cwd: directory, encoding: 'utf8' });
-    assert.deepEqual(JSON.parse(output), ['function', 'function', true, 'light']);
+    assert.deepEqual(JSON.parse(output), ['function', 'function', true, 'light', 'function']);
 });
 
 test('shared controls do not carry node-pack feature selectors', () => {

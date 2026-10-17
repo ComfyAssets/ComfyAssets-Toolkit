@@ -6,7 +6,7 @@ const server = createServer(async (request, response) => {
     const path = new URL(request.url, 'http://localhost').pathname;
     if (path === '/') {
         response.setHeader('content-type', 'text/html');
-        return response.end('<!doctype html><html><head><title>ComfyAssets controls</title></head><body><button id="unrelated">Outside toolkit</button><main class="ca-tools" id="controls"></main></body></html>');
+        return response.end('<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>ComfyAssets controls</title></head><body><button id="unrelated">Outside toolkit</button><main class="ca-tools" id="controls"></main></body></html>');
     }
     if (!/^\/ui\/[a-z-]+\.(js|css)$/.test(path)) { response.writeHead(404); return response.end(); }
     try {
