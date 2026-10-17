@@ -1,0 +1,37 @@
+{
+  "name": "@comfyassets/toolkit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:coverage": "node tools/coverage.mjs",
+    "test:browser": "playwright test"
+  },
+  "exports": {
+    "./testing/host": "./testing/comfyui-host.mjs",
+    "./testing/coverage": "./testing/coverage.mjs",
+    "./ui/core": "./ui/core.js",
+    "./ui/controls.css": "./ui/controls.css"
+  },
+  "files": [
+    "testing",
+    "ui",
+    "LICENSE",
+    "README.md",
+    "SOURCE.md"
+  ],
+  "description": "Shared controls and test infrastructure for independently installed ComfyAssets custom nodes",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ComfyAssets/ComfyAssets-Toolkit.git"
+  },
+  "devDependencies": {
+    "c8": "12.0.0",
+    "@playwright/test": "1.64.1"
+  }
+}
