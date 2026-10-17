@@ -130,3 +130,14 @@ release listeners. Abort signals cancel client waits, and expired or stale edits
 require a fresh preview. Protocol major 1 validates origin, namespace, destination
 and request identity; independently installed consumers can communicate without
 sharing module instances.
+
+Consumers can run the identical protocol contracts against their pinned artifact:
+
+```js
+import * as bridge from './vendored/ui/prompt-bridge.js';
+import { registerPromptBridgeContracts } from '@comfyassets/toolkit/testing/prompt-bridge-contracts';
+registerPromptBridgeContracts(bridge, () => import('./vendored/ui/prompt-bridge.js?independent-copy'));
+```
+
+This Node.js test helper registers the full transport suite, including independent
+module instances; supply the actual installed module rather than a rewritten copy.

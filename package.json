@@ -18,7 +18,8 @@
     "./ui/core": "./ui/core.js",
     "./ui/controls.css": "./ui/controls.css",
     "./ui/suggestions": "./ui/suggestions.js",
-    "./ui/prompt-bridge": "./ui/prompt-bridge.js"
+    "./ui/prompt-bridge": "./ui/prompt-bridge.js",
+    "./testing/prompt-bridge-contracts": "./testing/prompt-bridge-contracts.mjs"
   },
   "files": [
     "testing",
