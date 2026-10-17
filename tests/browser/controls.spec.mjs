@@ -137,3 +137,18 @@ test('suggestions default label and viewport limits work on touch and narrow scr
     await page.evaluate(() => fixture.suggestions.hide());
     await expect(popup).toBeHidden();
 });
+
+
+test('independent bundled copies allocate distinct suggestion IDs without secure-context APIs', async ({ page }) => {
+    const ids = await page.evaluate(async () => {
+        Object.defineProperty(Crypto.prototype, 'randomUUID', { configurable: true, value: undefined });
+        const first = await import('/ui/suggestions.js?pack=first');
+        const second = await import('/ui/suggestions.js?pack=second');
+        const a = first.createSuggestionView(fixture.scope, null);
+        const b = second.createSuggestionView(fixture.scope, null);
+        a.render([{ name: 'first' }], () => {}, () => {});
+        b.render([{ name: 'second' }], () => {}, () => {});
+        return [a.element.id, b.element.id, a.select(0), b.select(0)];
+    });
+    expect(new Set(ids).size).toBe(4);
+});

@@ -12,7 +12,8 @@ export function suggestionPosition(field, popup, viewport) {
 export function createSuggestionView(scope, settings, { label = 'Suggestions' } = {}) {
     const element = document.createElement('div');
     element.className = 'ca-tools ca-completions';
-    element.id = `ca-completions-${++nextList}`;
+    do { element.id = `ca-completions-${++nextList}`; }
+    while (document.getElementById(element.id));
     element.role = 'listbox';
     element.setAttribute('aria-label', label);
     element.hidden = true;
