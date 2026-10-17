@@ -51,7 +51,7 @@ npm run test:coverage
 ```
 
 Coverage combines Node V8 contracts and real Chromium desktop/touch controls.
-Every toolkit JS/MJS source file must meet 90% lines, 80% branches and 90%
+Every shipped toolkit JS/MJS source file must meet 90% lines, 80% branches and 90%
 functions. Reports and failure traces are retained in CI. Tests use temporary
 Git fixtures, files and fake processes; consumer suites verify real ComfyUI.
 Packaging tests prove byte-reproducible archives and independent installation.

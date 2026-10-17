@@ -29,3 +29,8 @@ test('the package is reproducible and installs independently without runtime dep
     `], { cwd: directory, encoding: 'utf8' });
     assert.deepEqual(JSON.parse(output), ['function', 'function', true, 'light']);
 });
+
+test('shared controls do not carry node-pack feature selectors', () => {
+    const css = readFileSync(join(root, 'ui/controls.css'), 'utf8');
+    assert.doesNotMatch(css, /kiko|promptmanager|ca-image-browser|ca-workflow-timer/i);
+});
